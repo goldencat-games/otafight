@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>おたふぁいと</title>
+    <meta name="description" content="ブラウザで遊べる本格2D格闘ゲーム。CPUとの熱いバトルを楽しもう！">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const errDiv = document.createElement('div');
+            errDiv.style.position = 'absolute';
+            errDiv.style.top = '0';
+            errDiv.style.left = '0';
+            errDiv.style.backgroundColor = 'rgba(255,0,0,0.8)';
+            errDiv.style.color = 'white';
+            errDiv.style.padding = '20px';
+            errDiv.style.zIndex = '9999';
+            errDiv.style.fontSize = '24px';
+            errDiv.style.whiteSpace = 'pre-wrap';
+            errDiv.innerHTML = `ERROR: ${message}\nLine: ${lineno}:${colno}\n${error ? error.stack : ''}`;
+            document.body.appendChild(errDiv);
+        };
+    </script>
+</head>
+<body>
+    <!-- GAME CANVAS -->
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+        
+        <!-- MENU BACKGROUND -->
+        <div id="menu-background"></div>
+        
+        <!-- TITLE SCREEN OVERLAY -->
+        <div id="title-screen" class="overlay active">
+            <div class="title-content">
+                <h1 class="game-title">おた<span class="title-accent">ふぁいと</span></h1>
+                <p class="title-subtitle">- OTAFIGHT -</p>
+                <div class="title-characters">
+                    <div class="title-char left">
+                        <div class="char-name">賢一</div>
+                        <div class="char-style">アキバ系の死神</div>
+                    </div>
+                    <div class="vs-text">VS</div>
+                    <div class="title-char right">
+                        <div class="char-name">こころ</div>
+                        <div class="char-style">高性能戦闘補助AI</div>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 15px; align-items: center; margin-top: 20px;">
+                    <button id="btn-start" class="menu-btn primary-btn" style="width: 300px;">GAME START</button>
+                    <button id="btn-controls" class="menu-btn" style="width: 300px;">操作説明</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTROLS OVERLAY -->
+        <div id="controls-screen" class="overlay">
+            <div class="difficulty-content" style="max-width: 800px; padding: 40px;">
+                <h2 class="screen-title">操作説明</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 30px; text-align: left;">
+                    <div>
+                        <h3 style="color: #FFD700; margin-bottom: 15px; font-size: 1.5rem; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);">【移動・ガード】</h3>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>A</kbd> <kbd>D</kbd> : 左右移動</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>W</kbd> : ジャンプ</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>S</kbd> : しゃがみ</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>Space</kbd> : ガード</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>S</kbd> + <kbd>Space</kbd> : しゃがみガード</p>
+                    </div>
+                    <div>
+                        <h3 style="color: #FFD700; margin-bottom: 15px; font-size: 1.5rem; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);">【攻撃】</h3>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>J</kbd> : パンチ</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>K</kbd> : キック</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>L</kbd> : 必殺技（ゲージ半分消費）</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>S</kbd> + <kbd>J</kbd> or <kbd>K</kbd> : 下段攻撃（立ちガード不能）</p>
+                        <p style="font-size: 1.2rem; margin-bottom: 10px; color: #E0E0E0;"><kbd>W</kbd> 中に <kbd>J</kbd> or <kbd>K</kbd> : ジャンプ攻撃（しゃがみガード不能）</p>
+                    </div>
+                </div>
+                <button id="btn-back-from-controls" class="menu-btn" style="width: 250px;">タイトルへ戻る</button>
+            </div>
+        </div>
+        
+        <!-- ROUND SELECT OVERLAY -->
+        <div id="round-screen" class="overlay">
+            <div class="difficulty-content">
+                <h2 class="screen-title">ラウンド数選択</h2>
+                <div class="difficulty-options" style="flex-direction: column; gap: 10px; align-items: center;">
+                    <button class="menu-btn round-btn" data-rounds="1" style="width: 450px; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 15px;">
+                        <span class="diff-label" style="font-size: 1.8rem;">1本勝負</span>
+                        <span class="diff-desc" style="font-size: 1.2rem;">(1ラウンド先取)</span>
+                    </button>
+                    <button class="menu-btn round-btn" data-rounds="2" style="width: 450px; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 15px;">
+                        <span class="diff-label" style="font-size: 1.8rem;">3本勝負</span>
+                        <span class="diff-desc" style="font-size: 1.2rem;">(2ラウンド先取)</span>
+                    </button>
+                    <button class="menu-btn round-btn" data-rounds="3" style="width: 450px; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 15px;">
+                        <span class="diff-label" style="font-size: 1.8rem;">5本勝負</span>
+                        <span class="diff-desc" style="font-size: 1.2rem;">(3ラウンド先取)</span>
+                    </button>
+                    <button class="menu-btn round-btn" data-rounds="Infinity" style="width: 450px; display: flex; flex-direction: row; align-items: baseline; justify-content: center; gap: 15px;">
+                        <span class="diff-label" style="font-size: 1.8rem;">エンドレス</span>
+                        <span class="diff-desc" style="font-size: 1.2rem;">(無限対戦モード)</span>
+                    </button>
+                </div>
+                <button id="btn-back-to-title-from-round" class="menu-btn back-btn" style="margin-top:20px;">← 戻る</button>
+            </div>
+        </div>
+        
+        <!-- DIFFICULTY SELECT OVERLAY -->
+        <div id="difficulty-screen" class="overlay">
+            <div class="difficulty-content">
+                <h2 class="screen-title">難易度選択</h2>
+                <div class="difficulty-options">
+                    <button class="menu-btn difficulty-btn" data-difficulty="very_easy">
+                        <span class="diff-label">VERY EASY</span>
+                        <span class="diff-desc">完全な初心者向け</span>
+                        <div class="diff-stars">★☆☆☆☆</div>
+                    </button>
+                    <button class="menu-btn difficulty-btn" data-difficulty="easy">
+                        <span class="diff-label">EASY</span>
+                        <span class="diff-desc">ゲームに不慣れな方へ</span>
+                        <div class="diff-stars">★★☆☆☆</div>
+                    </button>
+                    <button class="menu-btn difficulty-btn" data-difficulty="normal">
+                        <span class="diff-label">NORMAL</span>
+                        <span class="diff-desc">標準的な強さ</span>
+                        <div class="diff-stars">★★★☆☆</div>
+                    </button>
+                    <button class="menu-btn difficulty-btn" data-difficulty="hard">
+                        <span class="diff-label">HARD</span>
+                        <span class="diff-desc">上級者向け</span>
+                        <div class="diff-stars">★★★★☆</div>
+                    </button>
+                    <button class="menu-btn difficulty-btn" data-difficulty="kishin">
+                        <span class="diff-label">鬼神</span>
+                        <span class="diff-desc">絶望的な強さ</span>
+                        <div class="diff-stars" style="color: #ff0044;">★★★★★</div>
+                    </button>
+                </div>
+                <button id="btn-back-title" class="menu-btn back-btn">← 戻る</button>
+            </div>
+        </div>
+
+        <!-- ROUND INTRO OVERLAY -->
+        <div id="round-intro" class="overlay">
+            <div class="round-text" id="round-text">ROUND 1</div>
+            <div class="fight-text" id="fight-text">FIGHT!</div>
+        </div>
+
+        <!-- ROUND RESULT OVERLAY -->
+        <div id="round-result" class="overlay">
+            <div class="result-text" id="result-text">K.O.</div>
+        </div>
+
+        <!-- MATCH RESULT OVERLAY -->
+        <div id="match-result" class="overlay">
+            <div class="match-result-content">
+                <div class="winner-text" id="winner-text">YOU WIN!</div>
+                <div class="match-stats" id="match-stats"></div>
+                <button id="btn-rematch" class="menu-btn primary-btn">リマッチ</button>
+                <button id="btn-to-title" class="menu-btn back-btn">タイトルへ</button>
+            </div>
+        </div>
+
+        <!-- PAUSE OVERLAY -->
+        <div id="pause-screen" class="overlay">
+            <div class="pause-content">
+                <h2 class="screen-title">PAUSE</h2>
+                <button id="btn-resume" class="menu-btn primary-btn">再開</button>
+                <button id="btn-quit" class="menu-btn back-btn">タイトルへ</button>
+            </div>
+        </div>
+
+        <!-- CONTROLS HINT -->
+        <div id="controls-hint" class="controls-hint">
+            <div class="hint-title">操作方法</div>
+            <div class="hint-grid">
+                <div class="hint-item"><kbd>W</kbd> ジャンプ</div>
+                <div class="hint-item"><kbd>A</kbd><kbd>D</kbd> 移動</div>
+                <div class="hint-item"><kbd>S</kbd> しゃがみ</div>
+                <div class="hint-item"><kbd>J</kbd> パンチ</div>
+                <div class="hint-item"><kbd>K</kbd> キック</div>
+                <div class="hint-item"><kbd>L</kbd> 必殺技</div>
+                <div class="hint-item"><kbd>Space</kbd> ガード</div>
+                <div class="hint-item"><kbd>Esc</kbd> ポーズ</div>
+            </div>
+        </div>
+    </div>
+    <script src="audio_1.js"></script>
+    <script src="audio_2.js"></script>
+    <script src="audio_3.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
