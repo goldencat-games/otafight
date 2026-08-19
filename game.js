@@ -32,24 +32,52 @@ class SoundManager {
     constructor() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
-        
-        
-        this.bgm = new Audio('A_fight_one_can.ogg');
+
+
+        this.bgm = new Audio();
         this.bgm.loop = true;
         this.bgm.volume = 0.45;
-        
-        this.kishinBgm = new Audio('Phantom Clash.ogg');
+
+        this.kishinBgm = new Audio();
         this.kishinBgm.loop = true;
         this.kishinBgm.volume = 1.0;
-        
+
         this.currentDifficulty = 'normal';
-        
-        
-        this.titleBgm = new Audio('title_bgm.ogg');
+
+
+        this.titleBgm = new Audio();
         this.titleBgm.loop = true;
         this.titleBgm.volume = 0.75;
+
+        this.loadBGMAudio('A_fight_one_can', this.bgm, 'A_fight_one_can.ogg');
+        this.loadBGMAudio('Phantom Clash', this.kishinBgm, 'Phantom Clash.ogg');
+        this.loadBGMAudio('title_bgm', this.titleBgm, 'title_bgm.ogg');
     }
-    
+
+    // 公開先の環境で.oggを直接アップロードできないため、BGMをbase64+XOR暗号化して
+    // audio_1.js等のJSファイル(window.AUDIO_ASSETS)経由で読み込む運用になっている。
+    // それが無ければ通常の.oggファイルを読みにいく（ローカル動作用のフォールバック）。
+    loadBGMAudio(keyName, audioObj, fallbackSrc) {
+        if (window.AUDIO_ASSETS && window.AUDIO_ASSETS[keyName]) {
+            try {
+                const b64 = window.AUDIO_ASSETS[keyName];
+                const binaryString = atob(b64);
+                const view = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    view[i] = binaryString.charCodeAt(i) ^ 123;
+                }
+                const blob = new Blob([view], { type: 'audio/ogg' });
+                audioObj.src = URL.createObjectURL(blob);
+                audioObj.load();
+                return;
+            } catch (e) {
+                console.error('Error loading encrypted audio:', keyName, e);
+            }
+        }
+        audioObj.src = fallbackSrc;
+        audioObj.load();
+    }
+
     getActiveBGM() {
         return this.currentDifficulty === 'kishin' ? this.kishinBgm : this.bgm;
     }
