@@ -32,6 +32,9 @@ class SoundManager {
     constructor() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.connect(this.ctx.destination);
+        this.muted = false;
 
 
         this.bgm = new Audio();
@@ -76,6 +79,15 @@ class SoundManager {
         }
         audioObj.src = fallbackSrc;
         audioObj.load();
+    }
+
+    toggleMute() {
+        this.muted = !this.muted;
+        this.masterGain.gain.value = this.muted ? 0 : 1;
+        this.bgm.muted = this.muted;
+        this.kishinBgm.muted = this.muted;
+        this.titleBgm.muted = this.muted;
+        return this.muted;
     }
 
     getActiveBGM() {
@@ -170,7 +182,7 @@ class SoundManager {
         
         noise.connect(filter);
         filter.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.masterGain);
         
         noise.start();
     }
@@ -189,7 +201,7 @@ class SoundManager {
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
         
         osc.connect(gain);
-        gain.connect(this.ctx.destination);
+        gain.connect(this.masterGain);
         
         osc.start();
         osc.stop(this.ctx.currentTime + duration);
@@ -1067,10 +1079,9 @@ class CPUController {
 }
 
 class Renderer {
-    constructor(ctx) { 
-        this.ctx = ctx; 
-        this.bgOffset = 0; 
-        
+    constructor(ctx) {
+        this.ctx = ctx;
+
         this.bgImage = new Image();
         this.bgImage.src = 'bg_wharf.jpg';
     }
@@ -1080,91 +1091,14 @@ class Renderer {
         if (this.bgImage.complete && this.bgImage.naturalWidth !== 0) {
             ctx.drawImage(this.bgImage, 0, 0, CANVAS_W, CANVAS_H);
         } else {
-            this.drawBackgroundOld();
+            // 背景画像の読み込み完了前の数フレームだけ表示される。
+            // 以前はここで別デザインの背景（月など）を描画しており、起動直後に一瞬だけ
+            // 見えてしまっていたため、単色で塗りつぶすだけにしている。
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
         }
     }
 
-    drawBackgroundOld() {
-        const ctx = this.ctx;
-        
-        const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-        skyGrad.addColorStop(0, '#1a0a2e');
-        skyGrad.addColorStop(0.3, '#3d1856');
-        skyGrad.addColorStop(0.6, '#c94b2c');
-        skyGrad.addColorStop(0.85, '#f4a041');
-        skyGrad.addColorStop(1, '#f7d86c');
-        ctx.fillStyle = skyGrad;
-        ctx.fillRect(0, 0, CANVAS_W, GROUND_Y);
-        
-        ctx.fillStyle = '#2a1040';
-        this.drawMountains(ctx, 300, 0.2);
-        
-        ctx.fillStyle = '#3d1856';
-        this.drawMountains(ctx, 200, 0.5);
-        
-        this.drawTrees(ctx);
-        
-        ctx.fillStyle = '#ffe6b0';
-        ctx.beginPath();
-        ctx.arc(200, 100, 50, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#1a0a2e';
-        ctx.beginPath();
-        ctx.arc(220, 90, 45, 0, Math.PI * 2);
-        ctx.fill();
-        
-        const floorGrad = ctx.createLinearGradient(0, GROUND_Y, 0, CANVAS_H);
-        floorGrad.addColorStop(0, '#5C3A1E');
-        floorGrad.addColorStop(1, '#3A2010');
-        ctx.fillStyle = floorGrad;
-        ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
-        
-        ctx.strokeStyle = '#4A2E14';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 15; i++) {
-            const x = (i * 100 + this.bgOffset) % (CANVAS_W + 100) - 50;
-            ctx.beginPath();
-            ctx.moveTo(x, GROUND_Y);
-            ctx.lineTo(x - (x - CANVAS_W/2)*0.5, CANVAS_H);
-            ctx.stroke();
-        }
-        
-        this.drawPillar(ctx, 30, GROUND_Y - 250);
-        this.drawPillar(ctx, CANVAS_W - 50, GROUND_Y - 250);
-    }
-    
-    drawMountains(ctx, baseHeight, factor) {
-        ctx.beginPath();
-        ctx.moveTo(0, GROUND_Y);
-        for(let x=0; x<=CANVAS_W; x+=150) {
-            const y = GROUND_Y - baseHeight - Math.sin(x*factor)*50;
-            ctx.lineTo(x, y);
-        }
-        ctx.lineTo(CANVAS_W, GROUND_Y);
-        ctx.closePath();
-        ctx.fill();
-    }
-    
-    drawTrees(ctx) {
-        ctx.fillStyle = '#1a0520';
-        for(let x=50; x<CANVAS_W; x+=200) {
-            ctx.beginPath();
-            ctx.moveTo(x, GROUND_Y);
-            ctx.lineTo(x-20, GROUND_Y-80);
-            ctx.lineTo(x, GROUND_Y-120);
-            ctx.lineTo(x+20, GROUND_Y-80);
-            ctx.closePath();
-            ctx.fill();
-        }
-    }
-    
-    drawPillar(ctx, x, y) {
-        ctx.fillStyle = '#3a1a10';
-        ctx.fillRect(x-20, y, 40, GROUND_Y-y);
-        ctx.fillStyle = '#5c2a1a';
-        ctx.fillRect(x-15, y, 10, GROUND_Y-y);
-    }
-    
     drawFighter(fighter) {
         const ctx = this.ctx;
         ctx.save();
@@ -1941,6 +1875,15 @@ class Game {
         
         const btnQuit = document.getElementById('btn-quit');
         if (btnQuit) btnQuit.onclick = () => this.showScreen('title');
+
+        const btnMute = document.getElementById('btn-mute');
+        if (btnMute) {
+            btnMute.onclick = () => {
+                const muted = this.sound.toggleMute();
+                btnMute.textContent = muted ? '🔇' : '🔊';
+                btnMute.classList.toggle('muted', muted);
+            };
+        }
 
         this.bindMenuControls();
     }
