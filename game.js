@@ -7,49 +7,47 @@ const STAGE_RIGHT = 1230;
 const ROUND_TIME = 99;
 const FPS = 60;
 
+// 画面サイズに合わせて#game-container(1280x720固定)を拡縮し、
+// どんな画面幅でも全体が欠けずに収まるようにする。
+(function setupResponsiveScale() {
+    let rafId = null;
+    function applyScale() {
+        rafId = null;
+        const container = document.getElementById('game-container');
+        if (!container) return;
+        const vw = document.documentElement.clientWidth;
+        const vh = document.documentElement.clientHeight;
+        const scale = Math.min(vw / CANVAS_W, vh / CANVAS_H);
+        container.style.transform = `translate(-50%, -50%) scale(${scale})`;
+    }
+    function requestScale() {
+        if (rafId === null) rafId = requestAnimationFrame(applyScale);
+    }
+    window.addEventListener('resize', requestScale);
+    window.addEventListener('orientationchange', requestScale);
+    applyScale();
+})();
+
 class SoundManager {
     constructor() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
         
-        this.bgm = new Audio();
+        
+        this.bgm = new Audio('A_fight_one_can.ogg');
         this.bgm.loop = true;
         this.bgm.volume = 0.45;
         
-        this.kishinBgm = new Audio();
+        this.kishinBgm = new Audio('Phantom Clash.ogg');
         this.kishinBgm.loop = true;
         this.kishinBgm.volume = 1.0;
         
         this.currentDifficulty = 'normal';
         
-        this.titleBgm = new Audio();
+        
+        this.titleBgm = new Audio('title_bgm.ogg');
         this.titleBgm.loop = true;
         this.titleBgm.volume = 0.75;
-        
-        this.loadEncryptedAudio('A_fight_one_can', this.bgm);
-        this.loadEncryptedAudio('Phantom Clash', this.kishinBgm);
-        this.loadEncryptedAudio('title_bgm', this.titleBgm);
-    }
-    
-    async loadEncryptedAudio(keyName, audioObj) {
-        try {
-            if (!window.AUDIO_ASSETS || !window.AUDIO_ASSETS[keyName]) {
-                console.error('Audio asset not found:', keyName);
-                return;
-            }
-            const b64 = window.AUDIO_ASSETS[keyName];
-            const binaryString = atob(b64);
-            const view = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                view[i] = binaryString.charCodeAt(i) ^ 123;
-            }
-            const blob = new Blob([view], { type: 'audio/ogg' });
-            const url = URL.createObjectURL(blob);
-            audioObj.src = url;
-            audioObj.load();
-        } catch (e) {
-            console.error('Error loading encrypted audio:', e);
-        }
     }
     
     getActiveBGM() {
@@ -729,11 +727,10 @@ class CPUController {
             this.willCounterAttack = null;
             
             if (isOpponentAttacking && (opponent.state === 'punch' || opponent.state === 'kick' || opponent.state === 'crouchPunch' || opponent.state === 'crouchKick')) {
-                const attackCategory = (opponent.state === 'punch' || opponent.state === 'kick') ? 'high' : 'low';
-                if (this.spamAttackType === attackCategory) {
+                if (this.spamAttackType === opponent.state) {
                     this.opponentSpamCount++;
                 } else {
-                    this.spamAttackType = attackCategory;
+                    this.spamAttackType = opponent.state;
                     this.opponentSpamCount = 1;
                 }
                 
@@ -744,7 +741,11 @@ class CPUController {
                     let teleportDistance = 200;
                     
                     if (this.difficulty === 'kishin' || this.difficulty === 'hard') {
-                        shouldTeleport = true;
+                        if (opponent.state === 'crouchPunch' || opponent.state === 'crouchKick') {
+                            shouldTeleport = true;
+                        } else if (this.difficulty === 'kishin' && (opponent.state === 'punch' || opponent.state === 'kick')) {
+                            shouldTeleport = Math.random() < 0.5;
+                        }
                         
                         if (this.difficulty === 'hard') {
                             teleportDistance = 400;
