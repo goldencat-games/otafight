@@ -95,13 +95,18 @@ class SoundManager {
     }
     
     playBGM() {
+        // フェードアウトの完了を待たず、鳴らす瞬間に必ずタイトルBGMを止めておく。
+        // 処理が遅い端末だとフェードアウトが間に合わず、両方鳴ってしまうことがあるため。
+        this.titleBgm.pause();
         const active = this.getActiveBGM();
         active.currentTime = 0;
         active.volume = active === this.kishinBgm ? 1.0 : 0.45;
         active.play().catch(() => {});
     }
-    
+
     playTitleBGM() {
+        this.bgm.pause();
+        this.kishinBgm.pause();
         this.titleBgm.currentTime = 0;
         this.titleBgm.volume = 0.75;
         this.titleBgm.play().catch(() => {});
